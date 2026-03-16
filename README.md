@@ -5,9 +5,9 @@ AWS CDK (TypeScript) project deploying a production-grade static website infrast
 ## Architecture
 
 ```
-                        ┌─────────┐
+                        ┌──────────┐
                         │  Route53 │
-                        └────┬────┘
+                        └────┬─────┘
                              │ A + AAAA alias
                              ▼
 ┌──────────┐          ┌─────────────┐          ┌─────────────┐
@@ -54,21 +54,35 @@ Cross-region references (cert ARN, WAF ARN) are passed via SSM Parameter Store a
 - A Route53 hosted zone for your domain
 - CDK bootstrapped in both `us-east-1` and `eu-central-1`
 
+## Required Environment Variables
+
+Set these in your terminal before running any CDK commands.
+
+On Windows (PowerShell):
+```powershell
+$env:STAGE="dev"
+$env:CDK_DEV_ACCOUNT="123456789012"
+$env:CDK_STAGING_ACCOUNT="123456789012"
+$env:CDK_PROD_ACCOUNT="123456789012"
+$env:AWS_REGION="eu-central-1"
+$env:DOMAIN_NAME="yourdomain.com"
+```
+
+On Linux/macOS:
+```bash
+export STAGE=dev
+export CDK_DEV_ACCOUNT=123456789012
+export CDK_STAGING_ACCOUNT=123456789012
+export CDK_PROD_ACCOUNT=123456789012
+export AWS_REGION=eu-central-1
+export DOMAIN_NAME=yourdomain.com
+```
+
 ## Setup
 
 **Install dependencies**
 ```bash
 npm install
-```
-
-**Create a `.env` file at the project root**
-```bash
-STAGE=dev
-CDK_DEV_ACCOUNT=123456789012
-CDK_STAGING_ACCOUNT=123456789012
-CDK_PROD_ACCOUNT=123456789012
-AWS_REGION=eu-central-1
-DOMAIN_NAME=yourdomain.com
 ```
 
 **Bootstrap CDK** (one-time per account/region)
@@ -79,31 +93,32 @@ npx cdk bootstrap aws://YOUR_ACCOUNT_ID/eu-central-1
 
 ## Deploy
 
-**Synth (local, no AWS calls except hosted zone lookup)**
+**Synth** (local validation, no AWS changes except hosted zone lookup)
 ```bash
 npx cdk synth
 ```
 
-**Deploy a specific stage**
+**Deploy all stacks for a stage** (CDK resolves dependency order automatically)
 ```bash
-# Deploy all stacks for dev
-STAGE=dev npx cdk deploy CertStack-dev
-STAGE=dev npx cdk deploy WafStack-dev
-STAGE=dev npx cdk deploy FrontendStack-dev
+npx cdk deploy FrontendStack-dev
+```
 
-# Or deploy all at once (CDK resolves dependency order)
-STAGE=dev npx cdk deploy FrontendStack-dev
+**Deploy stacks individually**
+```bash
+npx cdk deploy CertStack-dev
+npx cdk deploy WafStack-dev
+npx cdk deploy FrontendStack-dev
 ```
 
 **Diff before deploying**
 ```bash
-STAGE=dev npx cdk diff
+npx cdk diff
 ```
 
 ## Destroy
 
 ```bash
-STAGE=dev npx cdk destroy --all
+npx cdk destroy --all
 ```
 
 > ⚠️ `prod` stacks use `RETAIN` removal policy — the S3 bucket will not be deleted automatically.
@@ -124,7 +139,6 @@ cdk-lrasata-website/
 │       ├── certificate-stack.ts # ACM certificate (us-east-1)
 │       ├── waf-stack.ts         # WAF WebACL (us-east-1)
 │       └── frontend-stack.ts    # Main stack (eu-central-1)
-├── .env                         # Local env vars (gitignored)
 └── cdk.json
 ```
 
