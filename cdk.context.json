@@ -1,0 +1,10 @@
+{
+  "hosted-zone:account=387836084035:domainName=epic-trip-planner.com:region=us-east-1": {
+    "Id": "/hostedzone/Z06898151VJN25FUVRO5O",
+    "Name": "epic-trip-planner.com."
+  },
+  "hosted-zone:account=387836084035:domainName=epic-trip-planner.com:region=eu-central-1": {
+    "Id": "/hostedzone/Z06898151VJN25FUVRO5O",
+    "Name": "epic-trip-planner.com."
+  }
+}
