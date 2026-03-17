@@ -1,5 +1,8 @@
 # cdk-lrasata-website
 
+![Deploy Dev](https://github.com/lrasata/cdk-lrasata-website/actions/workflows/deploy-dev.yml/badge.svg?branch=dev)
+![Deploy Staging and Prod](https://github.com/lrasata/cdk-lrasata-website/actions/workflows/deploy-main.yml/badge.svg)
+
 AWS CDK (TypeScript) project deploying a production-grade static website infrastructure with CloudFront, WAF, ACM, and Route53.
 
 ## Architecture
@@ -47,16 +50,106 @@ Cross-region references (cert ARN, WAF ARN) are passed via SSM Parameter Store a
 | `staging` | `staging.yourdomain.com` | DESTROY |
 | `prod` | `yourdomain.com` | RETAIN |
 
+## CI/CD — GitHub Actions
+
+### Workflows
+
+| Workflow | File | Trigger |
+|---|---|---|
+| Deploy Dev | `deploy-dev.yml` | Push to `dev` branch |
+| Deploy Staging → Prod | `deploy-main.yml` | Manual (`workflow_dispatch`) |
+
+### Deploy Dev
+
+Automatically triggered on every push to the `dev` branch.
+
+```
+push to dev
+     │
+     ▼
+Configure AWS credentials (OIDC)
+     │
+     ▼
+npm ci + cdk synth          ← validates, fails fast if broken
+     │
+     ▼
+cdk deploy FrontendStack-dev
+```
+
+### Deploy Staging → Prod
+
+Triggered manually from the GitHub Actions tab. Deploys to staging first, then waits for a human approval before deploying to prod.
+
+```
+manual trigger
+     │
+     ▼
+deploy-staging job
+     │  deploys FrontendStack-staging
+     │  fails here if anything is broken → prod never runs
+     │
+     ▼
+deploy-prod job
+     │  environment: prod
+     │  ⏸ GitHub pauses and waits for reviewer approval
+     │
+     ▼
+deploy FrontendStack-prod
+```
+
+### OIDC Authentication
+
+Workflows use OpenID Connect (OIDC) to authenticate with AWS — no long-lived credentials stored in GitHub secrets. GitHub exchanges a short-lived token per workflow run with AWS STS.
+
+```
+GitHub Actions run
+     │  issues a signed JWT: "I am repo lrasata/cdk-lrasata-website"
+     ▼
+AWS STS verifies against the OIDC provider
+     │  issues a temporary token (~1 hour)
+     ▼
+CDK deploy runs with that token
+```
+
+### Concurrency Protection
+
+Both workflows use GitHub concurrency groups to prevent two deployments targeting the same environment from running simultaneously.
+
+```yaml
+concurrency:
+  group: cdk-deploy-dev
+  cancel-in-progress: false   # queues, never cancels
+```
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `AWS_ROLE_ARN` | IAM role ARN assumed by GitHub Actions via OIDC |
+| `AWS_ACCOUNT_ID` | AWS account ID |
+| `AWS_REGION` | Deployment region (e.g. `eu-central-1`) |
+| `DOMAIN_NAME` | Your Route53 domain name |
+
+### Required GitHub Environments
+
+| Environment | Protection |
+|---|---|
+| `dev` | None |
+| `staging` | None |
+| `prod` | Required reviewer (manual approval gate) |
+
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - AWS CLI configured
 - A Route53 hosted zone for your domain
 - CDK bootstrapped in both `us-east-1` and `eu-central-1`
+- OIDC provider configured in AWS IAM for GitHub Actions
+- IAM role with CDK deploy permissions
 
 ## Required Environment Variables
 
-Set these in your terminal before running any CDK commands.
+Set these in your terminal before running any CDK commands locally.
 
 On Windows (PowerShell):
 ```powershell
@@ -78,7 +171,7 @@ export AWS_REGION=eu-central-1
 export DOMAIN_NAME=yourdomain.com
 ```
 
-## Setup
+## Local Setup
 
 **Install dependencies**
 ```bash
@@ -91,22 +184,15 @@ npx cdk bootstrap aws://YOUR_ACCOUNT_ID/us-east-1
 npx cdk bootstrap aws://YOUR_ACCOUNT_ID/eu-central-1
 ```
 
-## Deploy
+## Local Deploy
 
 **Synth** (local validation, no AWS changes except hosted zone lookup)
 ```bash
 npx cdk synth
 ```
 
-**Deploy all stacks for a stage** (CDK resolves dependency order automatically)
+**Deploy all stacks for a stage**
 ```bash
-npx cdk deploy FrontendStack-dev
-```
-
-**Deploy stacks individually**
-```bash
-npx cdk deploy CertStack-dev
-npx cdk deploy WafStack-dev
 npx cdk deploy FrontendStack-dev
 ```
 
@@ -127,6 +213,10 @@ npx cdk destroy --all
 
 ```
 cdk-lrasata-website/
+├── .github/
+│   └── workflows/
+│       ├── deploy-dev.yml        # Auto deploy on push to dev
+│       └── deploy-main.yml       # Manual deploy staging → prod
 ├── bin/
 │   └── cdk-lrasata-website.ts   # Entry point, stack wiring
 ├── lib/

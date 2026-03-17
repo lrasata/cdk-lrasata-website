@@ -27,6 +27,10 @@ export class FrontendStack extends Stack {
             webAclArn: props.webAclArn,
         });
 
+        new CfnOutput(this, 'BucketName', {
+            value: bucket.bucketName,
+        });
+
         new CfnOutput(this, 'DistributionId', {
             value: distribution.distributionId,
         });
