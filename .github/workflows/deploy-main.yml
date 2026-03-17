@@ -1,0 +1,91 @@
+name: Deploy Staging and Prod
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: cdk-deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Synth
+        env:
+          STAGE: staging
+          CDK_STAGING_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: npx cdk synth
+
+      - name: Deploy
+        env:
+          STAGE: staging
+          CDK_STAGING_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: npx cdk deploy FrontendStack-staging --require-approval never
+
+  deploy-prod:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Synth
+        env:
+          STAGE: prod
+          CDK_PROD_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: npx cdk synth
+
+      - name: Deploy
+        env:
+          STAGE: prod
+          CDK_PROD_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: npx cdk deploy FrontendStack-prod --require-approval never
