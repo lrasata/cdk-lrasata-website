@@ -1,8 +1,7 @@
 name: Deploy Staging and Prod
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: cdk-deploy-main
