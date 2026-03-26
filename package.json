@@ -1,6 +1,6 @@
 {
   "name": "cdk-lrasata-website",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "bin": {
     "cdk-lrasata-website": "bin/cdk-lrasata-website.js"
   },
